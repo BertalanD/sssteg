@@ -1,0 +1,160 @@
+.\"sssteg - hide secrets across multiple files
+.\"Copyright (C) 2020 Daniel Bertalan <dani@danielbertalan.dev>
+.\"
+.\"This program is free software: you can redistribute it and/or modify
+.\"it under the terms of the GNU General Public License as published by
+.\"the Free Software Foundation, either version 3 of the License, or
+.\"(at your option) any later version.
+.\"
+.\"This program is distributed in the hope that it will be useful,
+.\"but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\"GNU General Public License for more details.
+.\"
+.\"You should have received a copy of the GNU General Public License
+.\"along with this program.  If not, see <http://www.gnu.org/licenses/>.
+.\"
+.Dd $Mdocdate: May 27 2020 $
+.Dt SSSTEG 1
+.Os
+.Sh NAME
+.Nm sssteg
+.Nd hide secrets across multiple files
+.Sh SYNOPSIS
+.Nm
+.Cm hide
+.Op Fl p Ar password
+.Op Fl l Ar label
+.Op Fl s Ar secret | Fl f Ar secret-file
+.Op Fl t Ar threshold
+.Ar cover-file ...
+
+.Nm
+.Cm restore
+.Op Fl q
+.Op Fl p Ar password
+.Op Fl l Ar label
+.Op Fl o Ar output-file
+.Op Fl t Ar threshold
+.Ar stego-file ...
+.Sh DESCRIPTION
+.Nm
+is a wrapper around
+.Xr ssss 1
+and
+.Xr steghide 1
+written in POSIX shell. It splits up to 1024 bits of secret data and embeds it in JPEG files in a way that a specified number
+.Po
+.Ar threshold
+.Pc
+of shares are required to recover it. You can further secure the data with a
+.Ar password .
+
+For example, you can use it to store a master password or an encryption key. You hand out the cover files out to unsuspecting friends or upload them to online storage. Without the password, it theoratically should not be possible to identify hidden data. Visually, the cover files remain unchanged.
+
+.Ss SUBCOMMANDS
+The first argument must specify a subcommand, which is one of these:
+.Bl -tag -width Ds
+.It Cm hide
+Split, encrypt and embed secret data in cover files, thereby creating stego files. The stego files will be placed in a subdirectory named sssteg in the current working directory.
+.It Cm recover
+Recover the secret data from stego files. By default, the secret will be printed to the terminal.
+.It Cm help
+Display a short help message. Does not take any arguments.                             
+.It Cm license
+Display
+.Nm Ap s
+license. Does not take any arguments.
+.El
+
+.Ss OPTIONS
+The following options are supported by
+.R all
+subcommands:
+.Bl -tag -width Ds
+.It Fl p Ar password
+Symmetrically encrypt/decrypt the hidden data with this
+.Ar password .
+If you do not specify it, you will be prompted to enter one. If you do not want this protection, pass an empty string as argument. If
+.Ar password
+is a single dash (\(dq\-\(dq), it will be read from standard input.
+.It Fl l Ar label
+A short string to describe the hidden data. It is encrypted along with the secret data, so it cannot be read without the password. Helps when dealing with stego files for multiple secrets in one directory. If you do not specify it and stego files for multiple secrets with the same password are in the same directory, you will be asked to choose which secret to recover.
+.It Fl t Ar threshold
+The number of files that are needed to recover the secret. This must be >=2 and not more than the number of cover files. By default, all shares are needed. The same
+.Ar threshold
+.Sy must
+be specified when recovering and hiding, or else the program will output garbage data.
+.El
+
+Additionally, the
+.Cm hide
+subcommand supports these these options:
+.Bl -tag -width Ds
+.It Fl s Ar secret
+The data that will be encrypted and hidden. If this or
+.Fl f
+is not specified, you will be prompted to enter the secret.
+.It Fl f Ar secret-file
+Read the secret from
+.Ar secret-file
+instead of the command line or interactive input. If you have binary data like an encryption key, this input method is less likely to corrupt it. If
+.Ar secret-file
+is a single dash (\(dq\-\(dq), the secret data will be read from standard input.
+.El
+
+Additionally, the
+.Cm recover
+subcommand supports these options:
+.Bl -tag -width Ds
+.It Fl o Ar output-file
+Name of file to write the recovered secret to. This is especially useful if the secret contains non-printable characters, like an encryption key.
+.It Fl q
+Silences all messages on stdout, except the recovered secret. Error messages are still printed to stderr and user propmpts are printed to /dev/tty.
+.El
+
+.Sh EXAMPLES
+Hide an encryption key (like a secure 256-bit Curve25519 key) stored in the file
+.Pa secretkey.bin
+in 4 images with a threshold of 3:
+.Bd -literal -offset Ds
+$ sssteg hide \-s secretkey.bin \-t 3 img1.jpg img2.jpg img3.jpg img4.jpg
+Choose a password to protect the secrets:
+Saved ./sssteg/img1.jpg
+Saved ./sssteg/img2.jpg
+Saved ./sssteg/img3.jpg
+Saved ./sssteg/img4.jpg
+Done
+.Ed
+
+Restore
+.Pa secretkey.bin
+from 3 images:
+.Bd -literal -offset Ds
+$ sssteg recover \-o secretkey_restored.bin img1.jpg img2.jpg img4.jpg
+Enter password:
+These labels were found among input files:
+1: <no label>
+Only 1 label found. Continuing.
+.Ed
+
+Check if the secret was restored correctly. Please try this out before relying on
+.Nm .
+.Bd -literal -offset Ds
+$ cmp -s secretkey.bin secretkey_restored.bin && echo \(dqEveryhing is good.\(dq || echo \(dqFile a bug report please.\(dq
+Everything is good
+.Ed
+
+.Sh AUTHOR
+This software was originally written by
+.An Daniel Bertalan Aq Mt dani@danielbertalan.dev .
+To get involved with development, visit our homepage:
+.Lk https://danielbertalan.dev/sssteg.
+.Sh SECURITY CONSIDERATIONS
+Be sure to disable or clear shell history if you are typing any secrets into the prompt.
+
+Do not store or distribute the cover files along with the originals, as people or automatic scripts might notice what you are doing.
+
+This software may contain bugs and comes with absolutely no warranty. If you do not want to lose access to 10 years of GPG\-encrypted emails, do not use
+.Nm
+as the only storage method. Paper backups are always a good thing to keep.
