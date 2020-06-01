@@ -180,5 +180,5 @@ export secret_test_strings=( 'A very very important secret'
 @test "fail if pipng password and secret" {
 	run ../sssteg.sh hide -p - -s -
 	[ "$status" = 1 ]
-	[ "$lines[-1]}" = "Error: you can't pipe both the secret and the password." ]
+	[ "${lines[-1]}" = "Error: you can't pipe both the secret and the password." ]
 }
