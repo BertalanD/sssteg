@@ -14,7 +14,7 @@
 .\"You should have received a copy of the GNU General Public License
 .\"along with this program.  If not, see <http://www.gnu.org/licenses/>.
 .\"
-.Dd $Mdocdate: May 27 2020 $
+.Dd $Mdocdate: May 30 2020 $
 .Dt SSSTEG 1
 .Os
 .Sh NAME
@@ -23,20 +23,24 @@
 .Sh SYNOPSIS
 .Nm
 .Cm hide
+.Op Fl q
+.Op Fl n
 .Op Fl p Ar password
-.Op Fl l Ar label
 .Op Fl s Ar secret | Fl f Ar secret-file
+.Op Fl l Ar label
 .Op Fl t Ar threshold
-.Ar cover-file ...
+.Ar cover-file-1 cover-file-2 ...
 
 .Nm
 .Cm restore
 .Op Fl q
+.Op Fl n
 .Op Fl p Ar password
-.Op Fl l Ar label
-.Op Fl o Ar output-file
 .Op Fl t Ar threshold
-.Ar stego-file ...
+.Op Fl o Ar output-file
+.Op Fl l Ar label
+.Ar stego-file-1 stego-file-2 ...
+
 .Sh DESCRIPTION
 .Nm
 is a wrapper around
@@ -57,14 +61,18 @@ The first argument must specify a subcommand, which is one of these:
 .Bl -tag -width Ds
 .It Cm hide
 Split, encrypt and embed secret data in cover files, thereby creating stego files. The stego files will be placed in a subdirectory named sssteg in the current working directory.
-.It Cm recover
-Recover the secret data from stego files. By default, the secret will be printed to the terminal.
+.It Cm restore
+Restore the secret data from stego files. By default, the secret will be printed to the terminal.
 .It Cm help
 Display a short help message. Does not take any arguments.                             
 .It Cm license
 Display
 .Nm Ap s
 license. Does not take any arguments.
+.It Cm version
+Display
+.Nm Ap s
+version. Does not take any arguments.
 .El
 
 .Ss OPTIONS
@@ -72,15 +80,19 @@ The following options are supported by
 .R all
 subcommands:
 .Bl -tag -width Ds
-.It Fl p Ar password
+.It Fl q, Fl -quiet
+Quiet mode. Silences all messages on stdout, except the command's results. Error messages are still printed to stderr. Automatically enabled when output is being redirected.
+.It Fl n, Fl -non-interactive
+Non-interactive mode. Aborts script if user input is needed. Automatically enabled if input is being redirected.
+.It Fl p, Fl -password Ar password
 Symmetrically encrypt/decrypt the hidden data with this
 .Ar password .
 If you do not specify it, you will be prompted to enter one. If you do not want this protection, pass an empty string as argument. If
 .Ar password
 is a single dash (\(dq\-\(dq), it will be read from standard input.
-.It Fl l Ar label
+.It Fl l, Fl -label Ar label
 A short string to describe the hidden data. It is encrypted along with the secret data, so it cannot be read without the password. Helps when dealing with stego files for multiple secrets in one directory. If you do not specify it and stego files for multiple secrets with the same password are in the same directory, you will be asked to choose which secret to recover.
-.It Fl t Ar threshold
+.It Fl t, Fl -threshold Ar threshold
 The number of files that are needed to recover the secret. This must be >=2 and not more than the number of cover files. By default, all shares are needed. The same
 .Ar threshold
 .Sy must
@@ -91,11 +103,11 @@ Additionally, the
 .Cm hide
 subcommand supports these these options:
 .Bl -tag -width Ds
-.It Fl s Ar secret
+.It Fl s, Fl -secret Ar secret
 The data that will be encrypted and hidden. If this or
 .Fl f
 is not specified, you will be prompted to enter the secret.
-.It Fl f Ar secret-file
+.It Fl f, Fl -secret-file Ar secret-file
 Read the secret from
 .Ar secret-file
 instead of the command line or interactive input. If you have binary data like an encryption key, this input method is less likely to corrupt it. If
@@ -107,12 +119,15 @@ Additionally, the
 .Cm recover
 subcommand supports these options:
 .Bl -tag -width Ds
-.It Fl o Ar output-file
+.It Fl o, Fl -output-file Ar output-file
 Name of file to write the recovered secret to. This is especially useful if the secret contains non-printable characters, like an encryption key.
-.It Fl q
-Silences all messages on stdout, except the recovered secret. Error messages are still printed to stderr and user propmpts are printed to /dev/tty.
 .El
 
+To avoid ambiguous parsing, the grouping of flags
+.Po i.e.
+.Fl qn
+.Pc
+is not supported.
 .Sh EXAMPLES
 Hide an encryption key (like a secure 256-bit Curve25519 key) stored in the file
 .Pa secretkey.bin
@@ -129,13 +144,12 @@ Done
 
 Restore
 .Pa secretkey.bin
-from 3 images:
+from any 3 images:
 .Bd -literal -offset Ds
 $ sssteg recover \-o secretkey_restored.bin img1.jpg img2.jpg img4.jpg
 Enter password:
-These labels were found among input files:
-1: <no label>
-Only 1 label found. Continuing.
+Saved ./secretkey_restored.bin
+Done
 .Ed
 
 Check if the secret was restored correctly. Please try this out before relying on
