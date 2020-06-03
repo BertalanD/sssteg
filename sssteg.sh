@@ -131,12 +131,12 @@ input_hide() {
 	[ "$num_files" -lt 2 ] && die "you must specify at least 2 cover files."
 	[ "$num_files" -lt "$threshold" ] && die "threshold can't be higher than the number of cover files."
 
-	if [ -z "${password+x}" ]; then
-		# password was not set
-		read_secret password "Choose a password to protect the secrets: "
-	elif [ "$password" = "-" ]; then
+	if [ "$password" = "-" ]; then
 		# password is being piped in
 		password="$(cat)"
+	elif [ -z "${password+x}" ]; then
+		# password was not set
+		read_secret password "Choose a password to protect the secrets: "
 	fi
 
 	[ -z "$secret" ] && [ -z "$secret_file" ] && read_secret secret "Enter the secret, up to 128 ASCII characters: "
@@ -157,7 +157,8 @@ input_hide() {
 inner_hide() {
 	[ -d "sssteg" ] || mkdir sssteg
 
-	printf '%s' "$secret" | ssss-split -n "$num_files" -t "$threshold" -w "$label" -qx | while read -r line || exit 1; do
+	hex_shares="$(printf '%s' "$secret" | ssss-split -n "$num_files" -t "$threshold" -w "$label" -qx)" || die "there was an error while splitting the secret."
+	echo "$hex_shares" | while read -r line; do
 		stegofile="${PWD}/sssteg/$(basename "$1")" || die "Cannot read $1"
 		if echo "$line" | steghide embed -ef - -cf "$1" -sf "$stegofile" -p "$password" -q; then
 			msg "Saved ${stegofile}"
@@ -197,9 +198,10 @@ input_restore() {
 		if [ "$(echo "$labels" | LC_CTYPE=C wc -w)" = 1 ]; then
 			label_number=1
 		elif [ -z "$labels" ]; then
+			[ -d "sssteg" ] && warn "did you mean to get the stego files from the sssteg directory?"
 			die "no stego files were found. Maybe password is incorrect or wrong files?"
 		else
-			msg "Secrets with these labels were found:"
+			msg "secrets with these labels were found:"
 			i=0
 			for hex_label in $labels; do
 				i=$((i + 1))
@@ -233,16 +235,19 @@ inner_restore() {
 	threshold="${threshold:-$line_count}"
 	[ "$line_count" -lt "$threshold" ] && die "fewer stego files were found than threshold. Maybe password is incorrect?"
 
+	# a perfect pipe is split because there is no `pipefail`
 	if forked_ssss; then
-		echo "$result" | ssss-combine -t "$threshold" -qx | base16decode >"$output_file" || die "an error occurred while combining shares."
+		restored_hex="$(echo "$result" | ssss-combine -t "$threshold" -qx)" || die "there was an error while combining shares."
+		echo "$restored_hex" | tail -n 1 | base16decode >"$output_file" || die "an error occurred while writing secret."
 	else
-		echo "$result" | ssss-combine -t "$threshold" -qx 2>&1 | while IFS= read -r line || [ -n "$line" ]; do
+		full_output="$(echo "$result" | ssss-combine -t "$threshold" -qx 2>&1)" || die "there was an error while combining shares."
+		echo "$full_output" | while IFS= read -r line || [ -n "$line" ]; do
 			if printf "%s\n" "$line" | grep -E '^[0-9a-f]+$'; then
 				echo "$line"
 			else
 				echo "$line" 1>&2
 			fi
-		done | tail -n 1 | base16decode >"$output_file"
+		done | tail -n 1 | base16decode >"$output_file" || die "an error occurred while writing secret."
 	fi
 
 	[ "$output_file" = "/dev/stdout" ] || msg "Saved $output_file"

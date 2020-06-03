@@ -41,6 +41,13 @@ export secret_test_strings=( 'A very very important secret'
 	'\n'
 	'Árvíztűrő tükörfúrógép')
 
+# Cleanup if test case was cut short (i.e. failed)
+function teardown {
+	rmdir sssteg || true
+	rm out || true
+	rm base16decode || true
+}
+
 @test "correctly encode text to base16" {
 	source "$src"
 	for ((i=0;i<${#hex_test_strings[@]};++i)); do
@@ -181,4 +188,39 @@ export secret_test_strings=( 'A very very important secret'
 	run ../sssteg.sh hide -p - -s -
 	[ "$status" = 1 ]
 	[ "${lines[-1]}" = "Error: you can't pipe both the secret and the password." ]
+}
+
+@test "fail if non-interactive without arguments" {
+	run ../sssteg.sh hide ${cover_files[@]} </dev/null
+	[ "$status" = 1 ]
+	[ "${lines[-1]}" = "Error: running in non-interactive mode, cannot ask for password." ]
+}
+
+@test "meaningful error with empty secret via command line" {
+	run ../sssteg.sh hide -p "password" -s "" ${cover_files[@]}
+	[ "$status" = 1 ]
+	[ "${lines[-1]}" = "Error: '-s' requires a non-empty argument." ]
+}
+
+@test "meaningful error with empty secret file" {
+	run ../sssteg.sh hide -p "password" -f /dev/null ${cover_files[@]}
+	[ "$status" = 1 ]
+	[ "${lines[-1]}" = "Error: there was an error while splitting the secret." ]
+}
+
+@test "meaningful error with empty secret via file" {
+	run ../sssteg.sh hide -p "password" -s - ${cover_files[@]} </dev/null
+	[ "$status" = 1 ] 
+	[ "${lines[-1]}" = "Error: there was an error while splitting the secret." ] 
+}
+
+@test "fail with different length shares" {
+	../sssteg.sh hide -p "password" -s "short" -t 2 ${cover_files[0]} ${cover_files[1]} ${cover_files[2]}
+	../sssteg.sh hide -p "password" -s "this is a super long secret" -t 2 ${cover_files[3]} ${cover_files[4]}
+
+	run ../sssteg.sh restore -p "password" -t 4 ./sssteg/*.jpg
+	[ "$status" = 1 ]
+	[ "${lines[-1]}" = "Error: there was an error while combining shares." ]
+	
+	rm -r sssteg
 }
