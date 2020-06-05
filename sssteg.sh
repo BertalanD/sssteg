@@ -201,7 +201,7 @@ input_restore() {
 			[ -d "sssteg" ] && warn "did you mean to get the stego files from the sssteg directory?"
 			die "no stego files were found. Maybe password is incorrect or wrong files?"
 		else
-			msg "secrets with these labels were found:"
+			msg "Secrets with these labels were found:"
 			i=0
 			for hex_label in $labels; do
 				i=$((i + 1))
@@ -261,7 +261,7 @@ usage() {
 	echo "Usage:
   $0 hide    [-q] [-n] [-p <password>] [-s <secret> | -f <secret-file>]
              [-l <label>] [-t <threshold>] <cover-file> <cover-file>...
-  $0 restore [-q] [-n] -p <password> [-t <threshold>] [-o <output-file>]
+  $0 restore [-q] [-n] [-p <password>] [-t <threshold>] [-o <output-file>]
              [-l <label>]  <stego-file> <stego-file>...
   $0 help | -h
   $0 version | -v
